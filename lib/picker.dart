@@ -27,6 +27,24 @@ typedef PickerWidgetBuilder = Widget Function(
 typedef PickerItemBuilder = Widget? Function(BuildContext context, String? text,
     Widget? child, bool selected, int col, int index);
 
+const cyan = Color(0xFF4eccc4);
+
+class PickerSelectionOverlay extends StatelessWidget {
+  const PickerSelectionOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: cyan),
+          vertical: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
 /// Picker
 class Picker {
   static const double defaultTextSize = 18.0;
@@ -41,6 +59,7 @@ class Picker {
   final List<PickerDelimiter>? delimiter;
 
   final VoidCallback? onCancel;
+  final VoidCallback? onClear;
   final PickerSelectedCallback? onSelect;
   final PickerConfirmCallback? onConfirm;
   final PickerConfirmBeforeCallback? onConfirmBefore;
@@ -105,6 +124,7 @@ class Picker {
   final double squeeze;
 
   final bool printDebug;
+  final Axis itemAxis;
 
   Widget? _widget;
   PickerWidgetState? _state;
@@ -143,13 +163,15 @@ class Picker {
       this.magnification = 1.0,
       this.diameterRatio = 1.1,
       this.squeeze = 1.45,
-      this.selectionOverlay = const CupertinoPickerDefaultSelectionOverlay(),
+      this.selectionOverlay = const PickerSelectionOverlay(),
       this.onBuilderItem,
       this.onCancel,
+      this.onClear,
       this.onSelect,
       this.onConfirmBefore,
       this.onConfirm,
-      this.printDebug = false}) {
+      this.printDebug = false,
+      this.itemAxis = Axis.horizontal}) {
     this.selecteds = selecteds ?? <int>[];
   }
 
@@ -168,8 +190,12 @@ class Picker {
     _widget = PickerWidget(
       key: key ?? ValueKey(this),
       data: this,
-      child:
-          _PickerWidget(picker: this, themeData: themeData, isModal: isModal),
+      child: _PickerWidget(
+        picker: this,
+        themeData: themeData,
+        isModal: isModal,
+        itemAxis: itemAxis,
+      ),
     );
     return _widget!;
   }
@@ -237,9 +263,13 @@ class Picker {
               onCancel!();
             }
           });
-          if (cancelWidget != null) {
-            actions.add(cancelWidget);
-          }
+          final clearWidget = PickerWidgetState._buildButton(
+              context, 'Clear', null, cancelTextStyle, false, theme, () {
+            Navigator.pop<List<int>>(context, null);
+            if (onClear != null) {
+              onClear!();
+            }
+          });
           final confirmWidget = PickerWidgetState._buildButton(
               context, confirmText, confirm, confirmTextStyle, false, theme,
               () async {
@@ -256,6 +286,12 @@ class Picker {
           });
           if (confirmWidget != null) {
             actions.add(confirmWidget);
+          }
+          if (clearWidget != null && onClear != null) {
+            actions.add(clearWidget);
+          }
+          if (cancelWidget != null) {
+            actions.add(cancelWidget);
           }
           return material.AlertDialog(
             key: key ?? const Key('picker-dialog'),
@@ -356,8 +392,14 @@ class _PickerWidget<T> extends StatefulWidget {
   final Picker picker;
   final material.ThemeData? themeData;
   final bool isModal;
+  final Axis itemAxis;
+
   const _PickerWidget(
-      {super.key, required this.picker, this.themeData, required this.isModal});
+      {super.key,
+      required this.picker,
+      this.themeData,
+      required this.isModal,
+      required this.itemAxis});
 
   @override
   PickerWidgetState createState() => PickerWidgetState<T>();
@@ -432,23 +474,36 @@ class PickerWidgetState<T> extends State<_PickerWidget> {
       }
     }
 
-    bodyWidgets.add(_wait
-        ? Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: _buildViews(),
-          )
-        : AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: _buildViews(),
-            ),
-          ));
+    if (widget.itemAxis == Axis.vertical) {
+      bodyWidgets.addAll(_buildViews());
+    } else {
+      bodyWidgets.add(
+        _wait
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: _buildViews(),
+              )
+            : AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: _buildViews(),
+                ),
+              ),
+      );
+    }
 
     if (picker.footer != null) bodyWidgets.add(picker.footer!);
-    Widget v = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: bodyWidgets,
+    Widget v = ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: 360,
+        maxWidth: MediaQuery.sizeOf(context).width * 6,
+        maxHeight: MediaQuery.sizeOf(context).height * 3,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: bodyWidgets,
+      ),
     );
     if (widget.isModal) {
       return GestureDetector(
@@ -1210,6 +1265,8 @@ class PickerDateTimeType {
   static const int kYM = 11; // y, m
   static const int kDMY = 12; // d, m, y
   static const int kY = 13; // y
+
+  static const int kDMYHMS = 14; // d, m, y, hh, mm, ss
 }
 
 class DateTimePickerAdapter extends PickerAdapter<DateTime> {
@@ -1365,6 +1422,7 @@ class DateTimePickerAdapter extends PickerAdapter<DateTime> {
     [0, 12],
     [31, 12, 0],
     [0],
+    [31, 12, 0, 24, 60, 60],
   ];
 
   static const Map<int, int> columnTypeLength = {
@@ -1394,6 +1452,7 @@ class DateTimePickerAdapter extends PickerAdapter<DateTime> {
     [0, 1],
     [2, 1, 0],
     [0],
+    [2, 1, 0, 3, 4, 5],
   ];
 
   // static const List<int> leapYearMonths = const <int>[1, 3, 5, 7, 8, 10, 12];

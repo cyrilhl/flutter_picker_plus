@@ -95,7 +95,8 @@ class PickerLocalizations extends PickerLocalizationsBase {
   static const Map<String, Map<String, Object>> localizedValues = {
     'en': {
       'cancelText': 'Cancel',
-      'confirmText': 'Confirm',
+      'clearText': 'Clear',
+      'confirmText': 'Set',
       'ampm': ['AM', 'PM'],
       'months': [
         "Jan",
