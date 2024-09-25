@@ -264,7 +264,7 @@ class Picker {
             }
           });
           final clearWidget = PickerWidgetState._buildButton(
-              context, 'Clear', null, cancelTextStyle, false, theme, () {
+              context, 'CLEAR', null, cancelTextStyle, false, theme, () {
             Navigator.pop<List<int>>(context, null);
             if (onClear != null) {
               onClear!();
@@ -347,9 +347,10 @@ class Picker {
           [isCancelButton = false]) =>
       material.TextButton.styleFrom(
           minimumSize: Size(theme?.minWidth ?? 0.0, 42),
-          textStyle: TextStyle(
+          textStyle: const TextStyle(
             fontSize: Picker.defaultTextSize,
-            color: isCancelButton ? null : theme?.colorScheme?.secondary,
+            //color: isCancelButton ? null : theme?.colorScheme?.secondary,
+            color: cyan,
           ),
           padding: theme?.padding);
 }
@@ -574,6 +575,10 @@ class PickerWidgetState<T> extends State<_PickerWidget> {
       if (txt == null || txt.isEmpty) {
         return null;
       }
+      textStyle ??= const TextStyle(
+        fontSize: Picker.defaultTextSize,
+        color: cyan,
+      );
       return material.TextButton(
           style: Picker._getButtonStyle(
               material.ButtonTheme.of(context), isCancel),
